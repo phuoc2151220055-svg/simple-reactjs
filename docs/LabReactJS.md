@@ -1014,6 +1014,14 @@ jobs:
       - name: Lấy source code
         uses: actions/checkout@v4
 
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Configure Docker credentials store
+        run: |
+          mkdir -p ~/.docker
+          echo '{}' > ~/.docker/config.json
+
       - name: Đăng nhập GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -1034,6 +1042,8 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
 ```
+
+> **Lưu ý về username chữ hoa:** GHCR yêu cầu image name phải viết **thường hoàn toàn**. Nếu `github.repository_owner` có chữ hoa (ví dụ `GiangLT-dau`), bước `Lowercase image name` sẽ chuyển về `gianglt-dau` trước khi push/pull. Thiếu bước này sẽ gây lỗi `denied` hoặc `not found` trên GHCR.
 
 ---
 
@@ -1307,6 +1317,14 @@ jobs:
       packages: read
 
     steps:
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Configure Docker credentials store
+        run: |
+          mkdir -p ~/.docker
+          echo '{}' > ~/.docker/config.json
+
       - name: SSH vào VPS và Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -1440,6 +1458,8 @@ docker push <user>/simple-reactjs:latest
 | `docker build` thất bại | Lỗi trong source code hoặc `npm ci` thất bại | Đọc log build, kiểm tra `package.json` và `package-lock.json` |
 | `docker push` thất bại | Chưa đăng nhập hoặc sai tên image | Chạy `docker login` lại, kiểm tra tên image có đúng format `username/repo:tag` |
 | GitHub Actions fail tại bước login GHCR | `GITHUB_TOKEN` thiếu quyền | Kiểm tra `permissions: packages: write` đã khai báo trong job chưa |
+| `error storing credentials - fork/exec docker-credential-desktop.exe: exec format error` | WSL runner kế thừa Docker config của Windows Desktop, có `credsStore: desktop` trỏ tới file `.exe` không chạy được trên Linux | Thêm bước trước khi login: `mkdir -p ~/.docker && echo '{}' > ~/.docker/config.json` để xóa credential store |
+| Push/pull GHCR bị lỗi `denied` hoặc `not found` dù đã login thành công | GitHub username chứa chữ hoa; GHCR yêu cầu image name phải hoàn toàn **lowercase** | Thêm bước lowercase trước khi login: `echo "IMAGE_NAME=$(echo '${{ env.IMAGE_NAME }}' \| tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV` |
 | Job ở trạng thái `Queued` mãi không chạy | WSL runner không hoạt động | Vào WSL, chạy `sudo ./svc.sh status`; nếu stopped thì `sudo ./svc.sh start` |
 | GitHub Actions fail tại bước SSH | Thông tin VPS sai hoặc VPS chặn SSH bằng password | Kiểm tra `VPS_HOST`, `VPS_USERNAME`, `VPS_PASSWORD`; đảm bảo VPS cho phép `PasswordAuthentication yes` trong `/etc/ssh/sshd_config` |
 | VPS không pull được image từ GHCR | Package private, VPS chưa xác thực | Đặt package thành public trên GitHub, hoặc chạy `docker login ghcr.io` trên VPS với PAT |
